@@ -1,5 +1,5 @@
 // swift-interface-format-version: 1.0
-// swift-compiler-version: Apple Swift version 5.2.2 (swiftlang-1103.0.32.6 clang-1103.0.32.51)
+// swift-compiler-version: Apple Swift version 5.2.4 (swiftlang-1103.0.32.9 clang-1103.0.32.53)
 // swift-module-flags: -target arm64-apple-ios9.3 -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -module-name ObjectBox
 import Combine
 import Foundation
@@ -33,9 +33,10 @@ extension Box {
 }
 extension Box {
   public func get<I>(_ entityId: I) throws -> ObjectBox.Box<E>.EntityType? where I : ObjectBox.UntypedIdBase
-  public func get(_ entityId: ObjectBox.EntityId<ObjectBox.Box<E>.EntityType>) throws -> ObjectBox.Box<E>.EntityType?
-  public func dictionaryWithEntities<C>(forIds entityIds: C) throws -> [ObjectBox.EntityId<ObjectBox.Box<E>.EntityType> : ObjectBox.Box<E>.EntityType] where C : Swift.Collection, C.Element == ObjectBox.EntityId<E>
-  public func dictionaryWithEntities<I, C>(forIds entityIds: C) throws -> [I : ObjectBox.Box<E>.EntityType] where I : ObjectBox.UntypedIdBase, I == C.Element, C : Swift.Collection
+  public func get(_ id: ObjectBox.EntityId<ObjectBox.Box<E>.EntityType>) throws -> ObjectBox.Box<E>.EntityType?
+  public func get<I, C>(_ ids: C, maxCount: Swift.Int = 0) throws -> [ObjectBox.Box<E>.EntityType] where I : ObjectBox.IdBase, I == C.Element, C : Swift.Collection
+  public func getAsDictionary<C>(_ ids: C) throws -> [ObjectBox.EntityId<ObjectBox.Box<E>.EntityType> : ObjectBox.Box<E>.EntityType] where C : Swift.Collection, C.Element == ObjectBox.EntityId<E>
+  public func getAsDictionary<I, C>(_ ids: C) throws -> [I : ObjectBox.Box<E>.EntityType] where I : ObjectBox.UntypedIdBase, I == C.Element, C : Swift.Collection
   public func all() throws -> [ObjectBox.Box<E>.EntityType]
   public func allContiguous() throws -> Swift.ContiguousArray<ObjectBox.Box<E>.EntityType>
   @available(*, deprecated, renamed: "all")
@@ -86,8 +87,9 @@ public protocol EntityBinding : AnyObject {
   associatedtype EntityType : ObjectBox.Entity, ObjectBox.EntityInspectable
   associatedtype IdType : ObjectBox.IdBase
   init()
-  func collect(fromEntity entity: Self.EntityType, id entityId: ObjectBox.Id, propertyCollector: ObjectBox.FlatBufferBuilder, store: ObjectBox.Store)
-  func postPut(fromEntity entity: Self.EntityType, id entityId: ObjectBox.Id, store: ObjectBox.Store)
+  func generatorBindingVersion() -> Swift.Int
+  func collect(fromEntity entity: Self.EntityType, id entityId: ObjectBox.Id, propertyCollector: ObjectBox.FlatBufferBuilder, store: ObjectBox.Store) throws
+  func postPut(fromEntity entity: Self.EntityType, id entityId: ObjectBox.Id, store: ObjectBox.Store) throws
   func createEntity(entityReader: ObjectBox.FlatBufferReader, store: ObjectBox.Store) -> Self.EntityType
   func setEntityIdUnlessStruct(of entity: Self.EntityType, to entityId: ObjectBox.Id)
   func setStructEntityId(of entity: inout Self.EntityType, to entityId: ObjectBox.Id)
@@ -313,6 +315,38 @@ public class ModelBuilder {
   public func lastIndex(id schemaEntityID: Swift.UInt32, uid schemaEntityUID: Swift.UInt64)
   public func lastRelation(id relationID: Swift.UInt32, uid relationUid: Swift.UInt64)
   public func finish() -> Swift.OpaquePointer
+}
+public enum SyncCredentialsType : Swift.UInt {
+  case unchecked, sharedSecret, googleAuth
+  public typealias RawValue = Swift.UInt
+  public init?(rawValue: Swift.UInt)
+  public var rawValue: Swift.UInt {
+    get
+  }
+}
+public enum RequestUpdatesMode : Swift.UInt {
+  case manual, auto, autoNoPushes
+  public typealias RawValue = Swift.UInt
+  public init?(rawValue: Swift.UInt)
+  public var rawValue: Swift.UInt {
+    get
+  }
+}
+public enum SyncState : Swift.UInt {
+  case created, started, connected, loggedIn, disconnected, stopped, dead
+  public typealias RawValue = Swift.UInt
+  public init?(rawValue: Swift.UInt)
+  public var rawValue: Swift.UInt {
+    get
+  }
+}
+public enum SyncCode : Swift.UInt {
+  case ok, reqRejected, credentialsRejected, unknown, authUnreachable, badVersion, clientIdTaken, txViolatedUnique
+  public typealias RawValue = Swift.UInt
+  public init?(rawValue: Swift.UInt)
+  public var rawValue: Swift.UInt {
+    get
+  }
 }
 @available(OSX 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
 extension Observer : Combine.Subscription {
@@ -743,20 +777,26 @@ extension Property where V == Foundation.Date? {
   public func isBefore(_ other: Foundation.Date) -> ObjectBox.PropertyQueryCondition<ObjectBox.Property<E, V, R>.EntityType, ObjectBox.Property<E, V, R>.ValueType>
   public func isAfter(_ other: Foundation.Date) -> ObjectBox.PropertyQueryCondition<ObjectBox.Property<E, V, R>.EntityType, ObjectBox.Property<E, V, R>.ValueType>
 }
-extension Store {
-  public func runInTransaction<T>(_ block: () throws -> T) throws -> T
-  public func runInTransaction(_ block: () throws -> Swift.Void) throws
-  public func runInReadOnlyTransaction<T>(_ block: () throws -> T) throws -> T
-  public func runInReadOnlyTransaction(_ block: () throws -> Swift.Void) throws
-}
 @_hasMissingDesignatedInitializers final public class ToMany<S> : Swift.ExpressibleByNilLiteral where S : ObjectBox.EntityInspectable, S : ObjectBox.__EntityRelatable, S == S.EntityBindingType.EntityType {
   public typealias ReferencedType = S
+  final public var resolved: Swift.Bool {
+    get
+  }
+  final public var hasPendingDbChanges: Swift.Bool {
+    get
+  }
   public init(nilLiteral: ())
   public static func backlink<OwningType>(sourceBox: ObjectBox.Box<ObjectBox.ToMany<S>.ReferencedType>, sourceProperty: ObjectBox.Property<ObjectBox.ToMany<S>.ReferencedType, ObjectBox.EntityId<OwningType>, OwningType>, targetId: ObjectBox.EntityId<OwningType>) -> ObjectBox.ToMany<ObjectBox.ToMany<S>.ReferencedType> where OwningType : ObjectBox.EntityInspectable, OwningType : ObjectBox.__EntityRelatable
   public static func relation<OwningType>(sourceId: ObjectBox.EntityId<OwningType>, targetBox: ObjectBox.Box<ObjectBox.ToMany<S>.ReferencedType>, relationId: ObjectBox.obx_schema_id) -> ObjectBox.ToMany<ObjectBox.ToMany<S>.ReferencedType> where OwningType : ObjectBox.EntityInspectable, OwningType : ObjectBox.__EntityRelatable
   public static func backlink<OwningType>(sourceBox: ObjectBox.Box<ObjectBox.ToMany<S>.ReferencedType>, targetId: ObjectBox.EntityId<OwningType>, relationId: ObjectBox.obx_schema_id) -> ObjectBox.ToMany<ObjectBox.ToMany<S>.ReferencedType> where OwningType : ObjectBox.EntityInspectable, OwningType : ObjectBox.__EntityRelatable, OwningType == OwningType.EntityBindingType.EntityType
   final public func reset()
   final public func applyToDb() throws
+  final public var canInteractWithDb: Swift.Bool {
+    get
+  }
+  final public func resolveFromDb() throws
+  final public func getUncachedFromDb() throws -> [ObjectBox.ToMany<S>.ReferencedType]
+  final public func getUncachedIdsFromDb() throws -> [ObjectBox.ToMany<S>.ReferencedType.EntityBindingType.IdType]
   final public func replace<C>(_ newElements: __owned C) where S == C.Element, C : Swift.Collection, C.Element == S.EntityBindingType.EntityType
   @objc deinit
 }
@@ -781,6 +821,8 @@ extension ToMany : Swift.RandomAccessCollection {
 extension ToMany : Swift.RangeReplaceableCollection {
   convenience public init()
   final public func replaceSubrange<C, R>(_ subrange: R, with newElements: __owned C) where S == C.Element, C : Swift.Collection, R : Swift.RangeExpression, C.Element == S.EntityBindingType.EntityType, R.Bound == ObjectBox.ToMany<S>.Index
+  final public func removeAll(keepingCapacity keepCapacity: Swift.Bool = false)
+  final public func removeAll(where shouldBeRemoved: (ObjectBox.ToMany<S>.ReferencedType) throws -> Swift.Bool) rethrows
 }
 extension ToMany : Swift.CustomStringConvertible {
   final public var description: Swift.String {
@@ -877,8 +919,10 @@ public enum ObjectBoxError : Swift.Error {
   case stdOther(message: Swift.String)
   case schema(message: Swift.String)
   case fileCorrupt(message: Swift.String)
+  case filePagesCorrupt(message: Swift.String)
   case cannotRelateToUnsavedEntities(message: Swift.String)
   case unexpected(error: Swift.Error)
+  case sync(message: Swift.String)
 }
 @_hasMissingDesignatedInitializers public class EntityBuilder<T> {
   public func addProperty(name: Swift.String, type: ObjectBox.PropertyType, flags: ObjectBox.PropertyFlags = [], id propertyID: Swift.UInt32, uid UID: Swift.UInt64, indexId indexID: Swift.UInt32 = 0, indexUid indexUID: Swift.UInt64 = 0) throws
@@ -904,7 +948,7 @@ public class Store : Swift.CustomDebugStringConvertible {
   public var directoryPath: Swift.String {
     get
   }
-  public init(model: Swift.OpaquePointer, directory: Swift.String = "objectbox", maxDbSizeInKByte: Swift.UInt64 = 500 * 1024, fileMode: Swift.UInt32 = 0o755, maxReaders: Swift.UInt32 = 0) throws
+  public init(model: Swift.OpaquePointer, directory: Swift.String = "objectbox", maxDbSizeInKByte: Swift.UInt64 = 1024 * 1024, fileMode: Swift.UInt32 = 0o644, maxReaders: Swift.UInt32 = 0, readOnly: Swift.Bool = false) throws
   @objc deinit
   public func box<T>(for entityType: T.Type = T.self) -> ObjectBox.Box<T> where T : ObjectBox.EntityInspectable, T : ObjectBox.__EntityRelatable, T == T.EntityBindingType.EntityType
   public func closeAndDeleteAllFiles() throws
@@ -912,6 +956,13 @@ public class Store : Swift.CustomDebugStringConvertible {
   public var debugDescription: Swift.String {
     get
   }
+  public var syncClient: ObjectBox.SyncClient? {
+    get
+  }
+  public func runInTransaction<T>(_ block: () throws -> T) throws -> T
+  public func runInTransaction(_ block: () throws -> Swift.Void) throws
+  public func runInReadOnlyTransaction<T>(_ block: () throws -> T) throws -> T
+  public func runInReadOnlyTransaction(_ block: () throws -> Swift.Void) throws
 }
 @_hasMissingDesignatedInitializers public class FlatBufferBuilder {
   @objc deinit
@@ -952,7 +1003,7 @@ extension FlatBufferBuilder {
   public func collect(_ value: Swift.Double?, at propertyOffset: Swift.UInt16)
   public func collect(_ value: Swift.String?, at propertyOffset: Swift.UInt16)
   public func collect<T>(_ value: ObjectBox.EntityId<T>?, at propertyOffset: Swift.UInt16) where T : ObjectBox.EntityInspectable, T : ObjectBox.__EntityRelatable
-  public func collect<E>(_ relation: ObjectBox.ToOne<E>, at propertyOffset: Swift.UInt16, store: ObjectBox.Store) where E : ObjectBox.EntityInspectable, E : ObjectBox.__EntityRelatable, E == E.EntityBindingType.EntityType
+  public func collect<E>(_ toOne: ObjectBox.ToOne<E>, at propertyOffset: Swift.UInt16, store: ObjectBox.Store) throws where E : ObjectBox.EntityInspectable, E : ObjectBox.__EntityRelatable, E == E.EntityBindingType.EntityType
 }
 public class EntityInfo {
   public var entityName: Swift.String {
@@ -964,3 +1015,63 @@ public class EntityInfo {
   public init(name entityName: Swift.String, id schemaId: Swift.UInt32)
   @objc deinit
 }
+public protocol SyncClient : AnyObject {
+  var callListenersInMainThread: Swift.Bool { get set }
+  var loginListener: ObjectBox.SyncLoginListener? { get set }
+  var completedListener: ObjectBox.SyncCompletedListener? { get set }
+  var changeListener: ObjectBox.SyncChangeListener? { get set }
+  var connectionListener: ObjectBox.SyncConnectionListener? { get set }
+  var listener: ObjectBox.SyncListener? { get set }
+  var updateRequestMode: ObjectBox.RequestUpdatesMode { get set }
+  func getState() -> ObjectBox.SyncState
+  func getStateString() -> Swift.String
+  func isClosed() -> Swift.Bool
+  func close()
+  func setCredentials(_ credentials: ObjectBox.SyncCredentials) throws
+  func start() throws
+  func stop() throws
+  func requestUpdates() throws
+  func requestUpdatesAndSubscribe() throws
+  func cancelUpdates() throws
+  func fullSync() throws
+}
+public protocol SyncLoginListener {
+  func loggedIn()
+  func loginFailed(result: ObjectBox.SyncCode)
+}
+public protocol SyncCompletedListener {
+  func updatesCompleted()
+}
+public struct SyncChange {
+}
+public protocol SyncChangeListener {
+}
+public protocol SyncConnectionListener {
+  func connected()
+  func disconnected()
+}
+public protocol SyncListener : ObjectBox.SyncChangeListener, ObjectBox.SyncCompletedListener, ObjectBox.SyncConnectionListener, ObjectBox.SyncLoginListener {
+}
+@_hasMissingDesignatedInitializers public class Sync {
+  public static func isAvailable() -> Swift.Bool
+  public static func makeClient(store: ObjectBox.Store, url: Foundation.URL? = nil, urlString: Swift.String? = nil, credentials: ObjectBox.SyncCredentials? = nil) throws -> ObjectBox.SyncClient
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers public class SyncCredentials {
+  public static func makeUnchecked() -> ObjectBox.SyncCredentials
+  public static func makeSharedSecret(_ data: Foundation.Data) -> ObjectBox.SyncCredentials
+  public static func makeSharedSecret(_ string: Swift.String) -> ObjectBox.SyncCredentials
+  @objc deinit
+}
+extension ObjectBox.SyncCredentialsType : Swift.Equatable {}
+extension ObjectBox.SyncCredentialsType : Swift.Hashable {}
+extension ObjectBox.SyncCredentialsType : Swift.RawRepresentable {}
+extension ObjectBox.RequestUpdatesMode : Swift.Equatable {}
+extension ObjectBox.RequestUpdatesMode : Swift.Hashable {}
+extension ObjectBox.RequestUpdatesMode : Swift.RawRepresentable {}
+extension ObjectBox.SyncState : Swift.Equatable {}
+extension ObjectBox.SyncState : Swift.Hashable {}
+extension ObjectBox.SyncState : Swift.RawRepresentable {}
+extension ObjectBox.SyncCode : Swift.Equatable {}
+extension ObjectBox.SyncCode : Swift.Hashable {}
+extension ObjectBox.SyncCode : Swift.RawRepresentable {}

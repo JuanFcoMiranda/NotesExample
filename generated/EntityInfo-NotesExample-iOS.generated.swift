@@ -82,11 +82,13 @@ extension ObjectBox.Property where E == Author {
 
 
 /// Generated service type to handle persisting and reading entity data. Exposed through `Author.EntityBindingType`.
-internal class AuthorBinding: NSObject, ObjectBox.EntityBinding {
+internal class AuthorBinding: ObjectBox.EntityBinding {
     internal typealias EntityType = Author
     internal typealias IdType = Id
 
-    override internal required init() {}
+    internal required init() {}
+
+    internal func generatorBindingVersion() -> Int { 1 }
 
     internal func setEntityIdUnlessStruct(of entity: EntityType, to entityId: ObjectBox.Id) {
         entity.__setId(identifier: entityId)
@@ -97,15 +99,15 @@ internal class AuthorBinding: NSObject, ObjectBox.EntityBinding {
     }
 
     internal func collect(fromEntity entity: EntityType, id: ObjectBox.Id,
-                                  propertyCollector: ObjectBox.FlatBufferBuilder, store: ObjectBox.Store) {
+                                  propertyCollector: ObjectBox.FlatBufferBuilder, store: ObjectBox.Store) throws {
         let propertyOffset_name = propertyCollector.prepare(string: entity.name)
 
         propertyCollector.collect(id, at: 2 + 2 * 1)
         propertyCollector.collect(dataOffset: propertyOffset_name, at: 2 + 2 * 2)
     }
 
-    internal func postPut(fromEntity entity: EntityType, id: ObjectBox.Id, store: ObjectBox.Store) {
-        if entityId(of: entity) == 0 { // Written for first time? Attach ToMany relations:
+    internal func postPut(fromEntity entity: EntityType, id: ObjectBox.Id, store: ObjectBox.Store) throws {
+        if entityId(of: entity) == 0 {  // New object was put? Attach relations now that we have an ID.
             let notes = ToMany<Note>.backlink(
                 sourceBox: store.box(for: ToMany<Note>.ReferencedType.self),
                 sourceProperty: ToMany<Note>.ReferencedType.author,
@@ -114,6 +116,7 @@ internal class AuthorBinding: NSObject, ObjectBox.EntityBinding {
                 notes.replace(entity.notes)
             }
             entity.notes = notes
+            try entity.notes.applyToDb()
         }
     }
     internal func createEntity(entityReader: ObjectBox.FlatBufferReader, store: ObjectBox.Store) -> EntityType {
@@ -247,11 +250,13 @@ extension ObjectBox.Property where E == Note {
 
 
 /// Generated service type to handle persisting and reading entity data. Exposed through `Note.EntityBindingType`.
-internal class NoteBinding: NSObject, ObjectBox.EntityBinding {
+internal class NoteBinding: ObjectBox.EntityBinding {
     internal typealias EntityType = Note
     internal typealias IdType = Id
 
-    override internal required init() {}
+    internal required init() {}
+
+    internal func generatorBindingVersion() -> Int { 1 }
 
     internal func setEntityIdUnlessStruct(of entity: EntityType, to entityId: ObjectBox.Id) {
         entity.__setId(identifier: entityId)
@@ -262,20 +267,20 @@ internal class NoteBinding: NSObject, ObjectBox.EntityBinding {
     }
 
     internal func collect(fromEntity entity: EntityType, id: ObjectBox.Id,
-                                  propertyCollector: ObjectBox.FlatBufferBuilder, store: ObjectBox.Store) {
+                                  propertyCollector: ObjectBox.FlatBufferBuilder, store: ObjectBox.Store) throws {
         let propertyOffset_title = propertyCollector.prepare(string: entity.title)
         let propertyOffset_text = propertyCollector.prepare(string: entity.text)
 
         propertyCollector.collect(id, at: 2 + 2 * 1)
         propertyCollector.collect(entity.creationDate, at: 2 + 2 * 4)
         propertyCollector.collect(entity.modificationDate, at: 2 + 2 * 5)
-        propertyCollector.collect(entity.author, at: 2 + 2 * 6, store: store)
+        try propertyCollector.collect(entity.author, at: 2 + 2 * 6, store: store)
         propertyCollector.collect(dataOffset: propertyOffset_title, at: 2 + 2 * 2)
         propertyCollector.collect(dataOffset: propertyOffset_text, at: 2 + 2 * 3)
     }
 
-    internal func postPut(fromEntity entity: EntityType, id: ObjectBox.Id, store: ObjectBox.Store) {
-        if entityId(of: entity) == 0 { // Written for first time? Attach ToMany relations:
+    internal func postPut(fromEntity entity: EntityType, id: ObjectBox.Id, store: ObjectBox.Store) throws {
+        if entityId(of: entity) == 0 {  // New object was put? Attach relations now that we have an ID.
             entity.author.attach(to: store.box(for: Author.self))
         }
     }
@@ -323,17 +328,30 @@ extension ObjectBox.Store {
     /// A store with a fully configured model. Created by the code generator with your model's metadata in place.
     ///
     /// - Parameters:
-    ///   - directoryPath: Directory path to store database files in.
+    ///   - directoryPath: The directory path in which ObjectBox places its database files for this store.
     ///   - maxDbSizeInKByte: Limit of on-disk space for the database files. Default is `1024 * 1024` (1 GiB).
-    ///   - fileMode: UNIX-style bit mask used for the database files; default is `0o755`.
-    ///   - maxReaders: Maximum amount of concurrent readers, tailored to your use case. Default is `0` (unlimited).
-    internal convenience init(directoryPath: String, maxDbSizeInKByte: UInt64 = 1024 * 1024, fileMode: UInt32 = 0o755, maxReaders: UInt32 = 0) throws {
+    ///   - fileMode: UNIX-style bit mask used for the database files; default is `0o644`.
+    ///     Note: directories become searchable if the "read" or "write" permission is set (e.g. 0640 becomes 0750).
+    ///   - maxReaders: The maximum number of readers.
+    ///     "Readers" are a finite resource for which we need to define a maximum number upfront.
+    ///     The default value is enough for most apps and usually you can ignore it completely.
+    ///     However, if you get the maxReadersExceeded error, you should verify your
+    ///     threading. For each thread, ObjectBox uses multiple readers. Their number (per thread) depends
+    ///     on number of types, relations, and usage patterns. Thus, if you are working with many threads
+    ///     (e.g. in a server-like scenario), it can make sense to increase the maximum number of readers.
+    ///     Note: The internal default is currently around 120.
+    ///           So when hitting this limit, try values around 200-500.
+    /// - important: This initializer is created by the code generator. If you only see the internal `init(model:...)`
+    ///              initializer, trigger code generation by building your project.
+    internal convenience init(directoryPath: String, maxDbSizeInKByte: UInt64 = 1024 * 1024,
+                            fileMode: UInt32 = 0o644, maxReaders: UInt32 = 0, readOnly: Bool = false) throws {
         try self.init(
             model: try cModel(),
             directory: directoryPath,
             maxDbSizeInKByte: maxDbSizeInKByte,
             fileMode: fileMode,
-            maxReaders: maxReaders)
+            maxReaders: maxReaders,
+            readOnly: readOnly)
     }
 }
 

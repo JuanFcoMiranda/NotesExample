@@ -595,22 +595,6 @@
 			};
 			name = Release;
 		};
-		448FE4E7DDC8EE46D4644482CA3BB3ED /* Debug */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = F20B0E41D657A958BE51396C0B4F1EE7 /* ObjectBox.debug.xcconfig */;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
 		6A84BC6838DF6F6686BEE4B0529C4DE9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DE0F5677E4FEDC005F9860CDF738F028 /* Pods-NotesExample-iOSTests.release.xcconfig */;
@@ -715,6 +699,23 @@
 			};
 			name = Debug;
 		};
+		7421D127CD82B999A6A7B3F8C4FA6F1F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F20B0E41D657A958BE51396C0B4F1EE7 /* ObjectBox.debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		7DC5F11AFBEAE473E8D3C24A2D11338D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -776,11 +777,12 @@
 			};
 			name = Release;
 		};
-		83AB73B0DA408A591F8B1F58B2C6F169 /* Release */ = {
+		B0A851761AC22F198A4C01B10C929323 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 21AD9CA7C17B189164C60A9749BD60A7 /* ObjectBox.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -838,8 +840,8 @@
 		3290A089C1D58AFEA062EE83A29D7B66 /* Build configuration list for PBXAggregateTarget "ObjectBox" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				448FE4E7DDC8EE46D4644482CA3BB3ED /* Debug */,
-				83AB73B0DA408A591F8B1F58B2C6F169 /* Release */,
+				7421D127CD82B999A6A7B3F8C4FA6F1F /* Debug */,
+				B0A851761AC22F198A4C01B10C929323 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
