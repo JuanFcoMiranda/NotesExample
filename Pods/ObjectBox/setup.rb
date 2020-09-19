@@ -1,0 +1,1 @@
+Carthage/Build/Mac/OBXCodeGen.framework/Versions/A/Resources/setup.rb
