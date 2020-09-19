@@ -1,4 +1,0 @@
-framework module OBXCodeGen {
-  header "OBXCodeGen-Swift.h"
-  requires objc
-}

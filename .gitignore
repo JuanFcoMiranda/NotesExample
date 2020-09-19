@@ -10,7 +10,9 @@ xcuserdata/
 *.xccheckout
 
 ## compatibility with Xcode 3 and earlier (ignoring not required starting Xcode 4)
+.idea/
 build/
+generated/
 DerivedData/
 *.moved-aside
 *.pbxuser

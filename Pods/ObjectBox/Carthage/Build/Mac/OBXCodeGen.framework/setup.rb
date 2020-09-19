@@ -1,1 +1,0 @@
-Versions/A/Resources/setup.rb
